@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Marvis 表情包二创工坊</title>
+<style>
+  :root {
+    --bg: #f7f8fb;
+    --panel: #ffffff;
+    --ink: #1a1f2c;
+    --ink-2: #5b6373;
+    --line: #e6e8ef;
+    --brand: #0052d9;
+    --brand-2: #4e8cff;
+    --accent: #ff5c8a;
+    --soft: #f0f3fa;
+    --radius: 14px;
+    --shadow: 0 2px 16px rgba(20, 28, 60, 0.06);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+  header { padding: 22px 32px 6px; }
+  header h1 { font-size: 20px; font-weight: 700; margin: 0; letter-spacing: 0.5px; }
+  main { display: flex; flex-direction: column; gap: 20px; padding: 16px 32px 32px; }
+  .panel { background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; align-items: start; }
+  .panel h2 { font-size: 13px; font-weight: 700; color: var(--ink-2); margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.8px; }
+  .panel section { padding: 0; border-bottom: none; }
+  .panel section.cells-section { grid-column: 1 / -1; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .chip { background: var(--soft); color: var(--ink); border: 1px solid transparent; padding: 7px 12px; border-radius: 999px; font-size: 13px; cursor: pointer; transition: 0.15s; user-select: none; }
+  .chip:hover { border-color: var(--brand-2); }
+  .chip.active { background: var(--brand); color: #fff; border-color: var(--brand); }
+  .chip.compact { padding: 5px 9px; font-size: 12px; }
+  label.range { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-2); }
+  label.range input[type=range] { flex: 1; accent-color: var(--brand); }
+  label.range .val { min-width: 38px; text-align: right; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .toggle { display: flex; align-items: center; gap: 10px; font-size: 13px; cursor: pointer; user-select: none; }
+  .toggle input { width: 0; height: 0; opacity: 0; position: absolute; }
+  .toggle .sw { width: 40px; height: 22px; background: var(--line); border-radius: 999px; position: relative; transition: 0.15s; }
+  .toggle .sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: #fff; border-radius: 50%; transition: 0.15s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+  .toggle input:checked + .sw { background: var(--brand); }
+  .toggle input:checked + .sw::after { left: 20px; }
+  .toggle input:focus-visible + .sw { box-shadow: 0 0 0 3px rgba(0,82,217,0.2); }
+  #cells { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .cell { background: #fafbfd; border: 1px dashed var(--line); border-radius: 10px; padding: 10px; }
+  .cell.active { border-color: var(--brand); background: #f4f7ff; }
+  .cell .cell-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .cell .cell-head .badge { background: var(--brand); color: #fff; font-size: 11px; padding: 2px 7px; border-radius: 999px; font-weight: 700; }
+  .cell .cell-head .name { font-size: 13px; font-weight: 600; }
+  .cell .cell-head .clear { margin-left: auto; font-size: 12px; color: var(--ink-2); cursor: pointer; }
+  .cell .cell-head .clear:hover { color: var(--accent); }
+  .cell .cell-body { display: flex; gap: 10px; align-items: flex-start; }
+  .cell .thumb { width: 56px; height: 56px; border-radius: 8px; background: #fff; border: 2px dashed var(--brand-2); flex-shrink: 0; overflow: hidden; cursor: pointer; display: flex; align-items: center; justify-content: center; position: relative; transition: 0.15s; }
+  .cell .thumb:hover { border-style: solid; box-shadow: 0 2px 10px rgba(0,82,217,0.25); }
+  .cell .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .cell .thumb .empty { font-size: 22px; color: var(--brand); font-weight: 700; line-height: 1; }
+  .cell .thumb .swap { position: absolute; left: 0; right: 0; bottom: 0; height: 20px; background: var(--brand); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; }
+  .cell .thumb:hover .swap { background: #003fb0; }
+  .cell textarea { flex: 1; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; resize: vertical; min-height: 56px; font-family: inherit; background: #fff; color: var(--ink); }
+  .cell textarea:focus { outline: none; border-color: var(--brand-2); }
+
+  /* 展开式素材选择器（分页） */
+  .picker { margin-top: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; overflow: hidden; }
+  .picker-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  .picker-title { font-size: 13px; font-weight: 700; }
+  .picker-nav { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+  .nav-btn { width: 26px; height: 26px; border: 1px solid var(--line); background: #fff; border-radius: 6px; cursor: pointer; font-size: 15px; line-height: 1; color: var(--ink); }
+  .nav-btn:hover:not(:disabled) { border-color: var(--brand-2); color: var(--brand); }
+  .nav-btn:disabled { opacity: 0.35; cursor: default; }
+  .page-info { font-size: 12px; color: var(--ink-2); min-width: 34px; text-align: center; font-variant-numeric: tabular-nums; }
+  .picker .close { border: none; background: none; font-size: 18px; color: var(--ink-2); cursor: pointer; line-height: 1; padding: 0 2px; }
+  .picker-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 14px; }
+  .picker-grid .item { border: 1px solid var(--line); border-radius: 10px; padding: 6px; cursor: pointer; text-align: center; transition: 0.15s; }
+  .picker-grid .item:hover { border-color: var(--brand-2); transform: translateY(-2px); }
+  .picker-grid .item img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; display: block; }
+  .picker-grid .item span { font-size: 11px; color: var(--ink-2); display: block; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .preview-wrap { background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .preview-title { font-size: 13px; color: var(--ink-2); align-self: flex-start; }
+  .canvas { width: 420px; height: 420px; background: #ffffff; border-radius: 10px; box-shadow: 0 0 0 1px var(--line); display: grid; overflow: hidden; position: relative; touch-action: none; }
+  .canvas.size-1 { grid-template: 1fr / 1fr; }
+  .canvas.size-2 { grid-template: 1fr 1fr / 1fr; height: 840px; }
+  .canvas.size-4 { grid-template: 1fr 1fr / 1fr 1fr; }
+  .canvas .cell-img { position: relative; overflow: hidden; background: #fff; }
+  .canvas .cell-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .canvas .cell-img .txt { position: absolute; left: 0; right: 0; padding: 0 10px; text-align: center; font-weight: 800; line-height: 1.15; pointer-events: none; word-break: break-word; white-space: pre-wrap; }
+  .canvas .cell-img .txt.dark { color: #111; -webkit-text-stroke: 2px #fff; paint-order: stroke fill; }
+  .canvas .cell-img .txt.light { color: #fff; -webkit-text-stroke: 2px #000; paint-order: stroke fill; }
+  .pos-top .txt { top: 8px; }
+  .pos-mid .txt { top: 50%; transform: translateY(-50%); }
+  .pos-bot .txt { bottom: 42px; }
+  .canvas .signature { position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); font-size: 13px; color: #fff; background: rgba(0,0,0,0.35); padding: 2px 10px; border-radius: 6px; pointer-events: none; z-index: 2; }
+
+  /* 贴图层 */
+  .sticker-layer { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+  .sticker { position: absolute; pointer-events: auto; cursor: grab; user-select: none; touch-action: none; }
+  .sticker:active { cursor: grabbing; }
+  .sticker img { width: 100%; height: 100%; display: block; pointer-events: none; -webkit-user-drag: none; }
+  .sticker .st-del { position: absolute; top: -11px; right: -11px; width: 22px; height: 22px; background: var(--accent); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; line-height: 1; box-shadow: 0 1px 4px rgba(0,0,0,0.25); }
+  .sticker .st-resize { position: absolute; bottom: -8px; right: -8px; width: 16px; height: 16px; background: #fff; border: 2px solid var(--brand); border-radius: 50%; cursor: nwse-resize; }
+
+  /* 示例贴图（展示为小图，非按钮） */
+  .sticker-sample-wrap { display: flex; align-items: center; gap: 8px; }
+  .sticker-sample { width: 52px; height: 52px; border: 1px dashed var(--line); border-radius: 10px; cursor: pointer; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #fff; transition: 0.15s; }
+  .sticker-sample:hover { border-color: var(--brand-2); }
+  .sticker-sample img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
+  .sample-label { font-size: 11px; color: var(--ink-2); }
+
+  .toolbar { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .btn { background: var(--brand); color: #fff; border: none; padding: 10px 18px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.15s; }
+  .btn:hover { background: #003fb0; }
+  .btn.ghost { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+  .btn.ghost:hover { border-color: var(--brand-2); color: var(--brand); }
+  .footer-note { font-size: 12px; color: var(--ink-2); text-align: center; }
+  .hidden { display: none !important; }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: rgba(20,28,60,0.92); color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 999; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Marvis 表情包二创工坊</h1>
+  </header>
+  <main>
+    <section class="preview-wrap">
+      <div class="preview-title">实时预览 · 单击预览格可选中为当前编辑</div>
+      <div class="canvas size-1 pos-bot" id="canvas">
+        <div class="cell-img" data-idx="0">
+          <img />
+          <div class="txt light"></div>
+        </div>
+        <div class="signature hidden">@marvis</div>
+        <div class="sticker-layer" id="stickerLayer"></div>
+      </div>
+      <div class="toolbar">
+        <button class="btn" id="downloadBtn">下载 PNG</button>
+        <button class="btn ghost" id="copyBtn">复制图片</button>
+        <button class="btn ghost" id="resetBtn">重置</button>
+      </div>
+      <p class="footer-note">导出 PNG · 单图/四宫格 1200×1200 · 上下双图 600×1200</p>
+    </section>
+
+    <aside class="panel">
+      <section>
+        <h2>图片结构</h2>
+        <div class="row" id="layout-row">
+          <div class="chip active" data-layout="1">单图</div>
+          <div class="chip" data-layout="2">上下双图</div>
+          <div class="chip" data-layout="4">四宫格</div>
+        </div>
+      </section>
+
+      <section>
+        <h2>文字样式</h2>
+        <label class="range">
+          <span>字号</span>
+          <input id="fontSize" type="range" min="14" max="72" step="1" value="26" />
+          <span class="val" id="fontSizeVal">26</span>
+        </label>
+        <div class="row color-row" style="margin-top: 10px;">
+          <div class="chip active" data-color="light">白字</div>
+          <div class="chip" data-color="dark">黑字</div>
+        </div>
+        <div class="row pos-row" style="margin-top: 10px;">
+          <div class="chip" data-pos="top">靠上</div>
+          <div class="chip" data-pos="mid">居中</div>
+          <div class="chip active" data-pos="bot">靠下</div>
+        </div>
+      </section>
+
+      <section>
+        <h2>底部水印</h2>
+        <label class="toggle">
+          <input type="checkbox" id="sigToggle" checked />
+          <span class="sw"></span>
+          <span>显示 @marvis 水印</span>
+        </label>
+      </section>
+
+      <section>
+        <h2>贴图</h2>
+        <div class="sticker-sample-wrap">
+          <div class="sticker-sample" id="addSampleSticker" title="点击添加到画布">
+            <img id="sampleStickerImg" alt="示例贴图" />
+          </div>
+          <span class="sample-label" id="stickerLabel">（示例）</span>
+        </div>
+        <div class="row" style="margin-top: 10px;">
+          <div class="chip compact" id="uploadSticker">＋ 上传贴图</div>
+          <div class="chip compact" id="clearStickers">清空贴图</div>
+        </div>
+        <input type="file" id="stickerInput" accept="image/*" style="display:none;" />
+        <p style="font-size:11px;color:var(--ink-2);margin:6px 0 0;">点示例图或上传贴图后：拖拽移动、右下角圆点缩放、点右上角 × 删除。</p>
+      </section>
+
+      <section class="cells-section">
+        <h2>每格配置 <span style="font-weight:400;font-size:11px;color:var(--ink-2);">（点缩略图换图，配文可自由编辑）</span></h2>
+        <div id="cells"></div>
+
+        <!-- 展开式素材选择器（分页） -->
+        <div class="picker hidden" id="picker">
+          <div class="picker-head">
+            <span class="picker-title" id="pickerTitle">选择素材</span>
+            <div class="picker-nav">
+              <button class="nav-btn" id="pickerPrev">‹</button>
+              <span class="page-info" id="pageInfo">1/3</span>
+              <button class="nav-btn" id="pickerNext">›</button>
+            </div>
+            <button class="close" id="pickerClose">×</button>
+          </div>
+          <div class="picker-grid" id="pickerGrid"></div>
+        </div>
+
+        <div class="row" style="margin-top: 8px;">
+          <div class="chip compact" id="applyRandom">随机文案</div>
+          <div class="chip compact" id="clearAllText">清空文案</div>
+          <div class="chip compact" id="loadPreset">载入示例</div>
+        </div>
+      </section>
+    </aside>
+  </main>
+
+  <div class="toast" id="toast">已复制</div>
+
+<script>__MEMES_DATA__</script>
+<script>
+/* ---- 素材库（来自构建时注入的 21 张内置素材）---- */
+// 注意：build.py 注入的是顶层 const MEMES_DATA，不能走 window.MEMES_DATA（顶层 const 不挂 window）
+const Memes = (typeof MEMES_DATA !== 'undefined' ? MEMES_DATA : []).map(m => ({ name: m.name, src: m.data }));
+
+/* ---- 随机文案池（供「随机文案」按钮使用）---- */
+const SUGGESTIONS = [
+  '难绷', '苦涩', '已记下', '辛苦', '礼貌', '牛眼泪', '马上', '平静',
+  '莫？', '不急', '我吗', '？', '安详', '爆炸', 'cheers', '谢谢咪的token',
+  '下班', '先吃饭', '比心', '好秃然',
+  '不急，让子弹飞一会儿', '已读，不回', '明天的事后天再说', '收到，办不到',
+  '在忙，勿扰', '我看见了，我选择装死', '慢慢来，比较快', '天大的事，先站会儿',
+  '余额怎么是负的', '人生没有退路，但有窗户', '我不急，急的是你', '嗯嗯好的',
+];
+
+/* ---- 载入示例文案（按结构）---- */
+const PRESETS = [
+  ['不急', '让子弹飞一会儿'],
+  ['已读', '不回'],
+  ['收到', '明天再说'],
+  ['在忙', '勿扰'],
+];
+
+/* ---- 示例贴图（占位，待王姐提供正式图后替换）---- */
+const SAMPLE_STICKER = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240">' +
+  '<circle cx="120" cy="120" r="112" fill="#FFD43B" stroke="#FF8A00" stroke-width="8"/>' +
+  '<text x="120" y="136" font-size="60" font-weight="800" text-anchor="middle" fill="#1a1f2c" font-family="sans-serif">不急</text>' +
+  '</svg>'
+);
+
+/* ---- 默认底图（单图 / 上下双图 / 四宫格 初始均用「不急」）---- */
+const DEFAULT_MEME_NAME = '不急';
+const DEFAULT_IDX = (() => {
+  const i = Memes.findIndex(m => m.name === DEFAULT_MEME_NAME);
+  return i >= 0 ? i : 0;
+})();
+
+/* ---- state ---- */
+const CANVAS_W = 420;         // 预览画布宽（固定）
+const RESERVE_BOTTOM = 45;    // 文字靠下时，底部预留高度（避开水印，单位=预览px）
+const PAGE_SIZE = 8;          // 素材选择器每页张数
+const state = {
+  layout: 1,
+  fontSize: 26,
+  color: 'light',
+  pos: 'bot',
+  activeIdx: 0,
+  cells: [{ img: DEFAULT_IDX, text: '' }],
+  signature: { enabled: true },
+  stickers: [], // { src, x, y, w, h }
+};
+
+// 预览画布高度：上下双图为竖版（两个正方形格子），其余为正方形
+function canvasH() { return state.layout === 2 ? 840 : 420; }
+
+/* ---- 渲染：每格配置 ---- */
+function renderCells() {
+  const root = document.getElementById('cells');
+  root.innerHTML = '';
+  state.cells.forEach((c, i) => {
+    const meme = typeof c.img === 'number' && Memes[c.img] ? Memes[c.img] : null;
+    const thumb = meme ? meme.src : '';
+    const wrap = document.createElement('div');
+    wrap.className = 'cell' + (i === state.activeIdx ? ' active' : '');
+    wrap.innerHTML = `
+      <div class="cell-head">
+        <span class="badge">${i + 1}</span>
+        <span class="name">${meme ? meme.name : '未选图'}</span>
+        <span class="clear" data-clear="${i}">清空</span>
+      </div>
+      <div class="cell-body">
+        <div class="thumb" data-thumb="${i}">
+          ${thumb ? `<img src="${thumb}" />` : '<span class="empty">＋</span>'}
+          <div class="swap">${thumb ? '⇄ 换图' : '＋ 选图'}</div>
+        </div>
+        <textarea data-tx="${i}" placeholder="在这一格里写点啥…">${c.text || ''}</textarea>
+      </div>
+    `;
+    root.appendChild(wrap);
+  });
+  root.querySelectorAll('textarea').forEach(t => {
+    t.addEventListener('focus', () => setActive(+t.dataset.tx));
+    t.addEventListener('input', () => { state.cells[+t.dataset.tx].text = t.value; renderCanvas(); });
+  });
+  root.querySelectorAll('[data-clear]').forEach(el => {
+    el.addEventListener('click', () => {
+      const i = +el.dataset.clear;
+      state.cells[i].text = '';
+      renderCells(); renderCanvas();
+    });
+  });
+  root.querySelectorAll('[data-thumb]').forEach(el => {
+    el.addEventListener('click', () => { setActive(+el.dataset.thumb); openPicker(); });
+  });
+}
+
+function setActive(i) {
+  state.activeIdx = i;
+  document.querySelectorAll('#cells .cell').forEach((el, k) => el.classList.toggle('active', k === i));
+  highlightCanvasActive();
+}
+
+function highlightCanvasActive() {
+  document.querySelectorAll('#canvas .cell-img').forEach((el, i) => {
+    el.style.outline = i === state.activeIdx ? '2px solid #0052d9' : 'none';
+    el.style.outlineOffset = '-2px';
+  });
+}
+
+/* ---- 渲染：预览画布 ---- */
+function renderCanvas() {
+  const c = document.getElementById('canvas');
+  c.className = `canvas size-${state.layout} pos-${state.pos}`;
+  const sig = c.querySelector('.signature');
+  const sl = c.querySelector('.sticker-layer');
+  c.innerHTML = '';
+  for (let i = 0; i < state.layout; i++) {
+    const cell = state.cells[i] || { img: null, text: '' };
+    const meme = typeof cell.img === 'number' && Memes[cell.img] ? Memes[cell.img] : null;
+    const src = meme ? meme.src : '';
+    const div = document.createElement('div');
+    div.className = 'cell-img';
+    div.dataset.idx = i;
+    div.innerHTML = `
+      <img src="${src}" onerror="this.style.opacity=0" />
+      <div class="txt ${state.color}">${escapeHtml(cell.text || '')}</div>
+    `;
+    div.addEventListener('click', () => setActive(i));
+    c.appendChild(div);
+  }
+  if (sig) c.appendChild(sig);
+  if (sl) c.appendChild(sl);
+  applyTextStyle();
+  applySignature();
+  renderStickers();
+  highlightCanvasActive();
+}
+
+function applyTextStyle() {
+  document.querySelectorAll('#canvas .txt').forEach(el => {
+    el.style.fontSize = state.fontSize + 'px';
+  });
+}
+
+function applySignature() {
+  const sig = document.querySelector('#canvas .signature');
+  if (!sig) return;
+  sig.textContent = '@marvis';
+  sig.classList.toggle('hidden', !state.signature.enabled);
+}
+
+function escapeHtml(s) {
+  return (s || '').replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
+}
+
+/* ---- 展开式素材选择器（分页）---- */
+let pickerPage = 0;
+
+function openPicker() {
+  pickerPage = 0;
+  renderPickerPage();
+  document.getElementById('picker').classList.remove('hidden');
+}
+
+function closePicker() {
+  document.getElementById('picker').classList.add('hidden');
+}
+
+function renderPickerPage() {
+  const total = Math.max(1, Math.ceil(Memes.length / PAGE_SIZE));
+  if (pickerPage < 0) pickerPage = 0;
+  if (pickerPage >= total) pickerPage = total - 1;
+  const start = pickerPage * PAGE_SIZE;
+  const slice = Memes.slice(start, start + PAGE_SIZE);
+  const grid = document.getElementById('pickerGrid');
+  grid.innerHTML = '';
+  slice.forEach((m, k) => {
+    const idx = start + k;
+    const el = document.createElement('div');
+    el.className = 'item';
+    el.innerHTML = `<img src="${m.src}" /><span>${m.name}</span>`;
+    el.addEventListener('click', () => selectMeme(idx));
+    grid.appendChild(el);
+  });
+  document.getElementById('pageInfo').textContent = (pickerPage + 1) + '/' + total;
+  document.getElementById('pickerPrev').disabled = pickerPage === 0;
+  document.getElementById('pickerNext').disabled = pickerPage >= total - 1;
+}
+
+function selectMeme(i) {
+  const m = Memes[i];
+  const c = state.cells[state.activeIdx];
+  c.img = i;
+  c.text = m.name; // 选中后默认写入图片名作为文案，可自由编辑
+  closePicker();
+  renderCells();
+  renderCanvas();
+  toast('第 ' + (state.activeIdx + 1) + ' 格已换为「' + m.name + '」，已填入默认配文');
+}
+
+/* ---- 贴图 ---- */
+function addSticker(src) {
+  const img = new Image();
+  img.onload = () => {
+    const nw = img.naturalWidth || 240;
+    const nh = img.naturalHeight || 240;
+    const w = 120;
+    const h = w * nh / nw;
+    state.stickers.push({ src, x: (CANVAS_W - w) / 2, y: (canvasH() - h) / 2, w, h });
+    renderStickers();
+    toast('已添加贴图');
+  };
+  img.onerror = () => toast('贴图加载失败');
+  img.src = src;
+}
+
+function removeSticker(i) {
+  state.stickers.splice(i, 1);
+  renderStickers();
+}
+
+function renderStickers() {
+  const layer = document.getElementById('stickerLayer');
+  layer.innerHTML = '';
+  state.stickers.forEach((s, i) => {
+    const el = document.createElement('div');
+    el.className = 'sticker';
+    el.style.left = s.x + 'px';
+    el.style.top = s.y + 'px';
+    el.style.width = s.w + 'px';
+    el.style.height = s.h + 'px';
+    el.innerHTML = `<img src="${s.src}" draggable="false" /><div class="st-del" data-del="${i}">×</div><div class="st-resize" data-resize="${i}"></div>`;
+    el.addEventListener('pointerdown', e => startDrag(e, i));
+    layer.appendChild(el);
+  });
+  layer.querySelectorAll('[data-del]').forEach(b => {
+    b.addEventListener('pointerdown', e => e.stopPropagation());
+    b.addEventListener('click', e => { e.stopPropagation(); removeSticker(+b.dataset.del); });
+  });
+  layer.querySelectorAll('[data-resize]').forEach(r => {
+    r.addEventListener('pointerdown', e => { e.stopPropagation(); startResize(e, +r.dataset.resize); });
+  });
+}
+
+function canvasScale() {
+  const r = document.getElementById('canvas').getBoundingClientRect();
+  return 420 / (r.width || 420);
+}
+
+let drag = null; // { type: 'move'|'resize', idx, px, py, sx, sy, sw, sh, ratio, scale }
+
+function startDrag(e, idx) {
+  e.preventDefault();
+  e.stopPropagation();
+  const s = state.stickers[idx];
+  drag = { type: 'move', idx, px: e.clientX, py: e.clientY, sx: s.x, sy: s.y, scale: canvasScale() };
+}
+
+function startResize(e, idx) {
+  e.preventDefault();
+  e.stopPropagation();
+  const s = state.stickers[idx];
+  drag = { type: 'resize', idx, px: e.clientX, py: e.clientY, sw: s.w, sh: s.h, ratio: s.h / s.w, scale: canvasScale() };
+}
+
+function onPointerMove(e) {
+  if (!drag) return;
+  e.preventDefault();
+  const s = state.stickers[drag.idx];
+  if (drag.type === 'move') {
+    s.x = clamp(drag.sx + (e.clientX - drag.px) * drag.scale, 0, CANVAS_W - s.w);
+    s.y = clamp(drag.sy + (e.clientY - drag.py) * drag.scale, 0, canvasH() - s.h);
+  } else {
+    s.w = clamp(drag.sw + (e.clientX - drag.px) * drag.scale, 36, CANVAS_W - s.x);
+    s.h = s.w * drag.ratio;
+  }
+  updateStickerDom(drag.idx);
+}
+
+function onPointerUp() {
+  drag = null;
+}
+
+function updateStickerDom(i) {
+  const s = state.stickers[i];
+  const el = document.querySelector('#stickerLayer .sticker:nth-child(' + (i + 1) + ')');
+  if (!el) return;
+  el.style.left = s.x + 'px';
+  el.style.top = s.y + 'px';
+  el.style.width = s.w + 'px';
+  el.style.height = s.h + 'px';
+}
+
+function clamp(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+/* ---- 结构切换 ---- */
+function setLayout(n) {
+  state.layout = n;
+  while (state.cells.length < n) state.cells.push({ img: DEFAULT_IDX, text: '' });
+  state.cells = state.cells.slice(0, n);
+  state.activeIdx = 0;
+  document.querySelectorAll('#layout-row .chip').forEach(el => {
+    el.classList.toggle('active', +el.dataset.layout === n);
+  });
+  renderCells();
+  renderCanvas();
+}
+
+function bindChipGroup(selector, onSelect) {
+  document.querySelectorAll(selector).forEach(el => {
+    el.addEventListener('click', () => {
+      el.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+      onSelect(el);
+    });
+  });
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove('show'), 1600);
+}
+
+/* ---- 导出 PNG（cover 铺满 + 署名 + 贴图）---- */
+function drawCover(ctx, img, x, y, w, h) {
+  const ir = img.width / img.height;
+  const r = w / h;
+  let sw, sh, sx, sy;
+  if (ir > r) { sh = img.height; sw = sh * r; sx = (img.width - sw) / 2; sy = 0; }
+  else { sw = img.width; sh = sw / r; sy = (img.height - sh) / 2; sx = 0; }
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+}
+
+function drawText(ctx, text, x, y, w, h, scale) {
+  const padX = 24 * scale;
+  const maxW = w - padX * 2;
+  const fontSize = Math.round(state.fontSize * scale);
+  ctx.font = `800 ${fontSize}px -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const lines = wrapText(ctx, text, maxW);
+  const lineH = Math.round(fontSize * 1.15);
+  let cy;
+  if (state.pos === 'top') cy = y + fontSize + 18 * scale;
+  else if (state.pos === 'mid') cy = y + h / 2;
+  else cy = y + h - (lines.length * lineH) / 2 - RESERVE_BOTTOM * scale;
+
+  // 白字 / 黑字均自带描边（白字黑边、黑字白边）
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+  ctx.lineJoin = 'round';
+  if (state.color === 'dark') {
+    ctx.fillStyle = '#111'; ctx.strokeStyle = '#fff';
+  } else {
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000';
+  }
+  ctx.lineWidth = Math.max(3, Math.round(fontSize / 9));
+  lines.forEach((line, i) => {
+    const ly = cy + i * lineH;
+    ctx.strokeText(line, x + w / 2, ly);
+    ctx.fillText(line, x + w / 2, ly);
+  });
+}
+
+function wrapText(ctx, text, maxW) {
+  const result = [];
+  text.split('\n').forEach(par => {
+    let line = '';
+    for (const ch of par) {
+      const test = line + ch;
+      if (ctx.measureText(test).width > maxW && line) { result.push(line); line = ch; }
+      else line = test;
+    }
+    if (line) result.push(line);
+  });
+  return result;
+}
+
+function loadImg(src) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => res(img);
+    img.onerror = rej;
+    img.src = src;
+  });
+}
+
+async function renderToCanvas(canvas) {
+  const n = state.layout;
+  // 上下双图 = 竖版（两个正方形格子上下叠），其余 = 正方形画布
+  const sizeW = n === 2 ? 600 : 1200;
+  const sizeH = n === 2 ? 1200 : 1200;
+  const cols = n === 4 ? 2 : 1;
+  const rows = n === 4 ? 2 : (n === 2 ? 2 : 1);
+  const cellW = sizeW / cols;
+  const cellH = sizeH / rows;
+  const scale = sizeW / CANVAS_W;
+
+  canvas.width = sizeW; canvas.height = sizeH;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, sizeW, sizeH);
+
+  for (let i = 0; i < n; i++) {
+    const col = cols === 2 ? (i % 2) : 0;
+    const row = Math.floor(i / cols);
+    const x = col * cellW, y = row * cellH;
+    const cell = state.cells[i] || { img: null, text: '' };
+    const meme = typeof cell.img === 'number' && Memes[cell.img] ? Memes[cell.img] : null;
+    if (meme && meme.src) {
+      const img = await loadImg(meme.src);
+      drawCover(ctx, img, x, y, cellW, cellH);
+    } else {
+      ctx.fillStyle = '#f4f6fa';
+      ctx.fillRect(x, y, cellW, cellH);
+    }
+    if (cell.text) drawText(ctx, cell.text, x, y, cellW, cellH, scale);
+  }
+
+  // 底部 Marvis 水印（固定文字）
+  if (state.signature.enabled) {
+    const label = '@marvis';
+    const fs = Math.round(15 * scale);
+    ctx.font = `600 ${fs}px -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif`;
+    const tw = ctx.measureText(label).width;
+    const padX = 10 * scale, padY = 6 * scale;
+    const bw = tw + padX * 2, bh = fs + padY * 2;
+    const bx = (sizeW - bw) / 2, by = sizeH - bh - 12 * scale;
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(bx, by, bw, bh, 8); else ctx.rect(bx, by, bw, bh);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, sizeW / 2, by + bh / 2 + 1);
+  }
+
+  // 贴图（最上层）
+  for (const s of state.stickers) {
+    try {
+      const img = await loadImg(s.src);
+      ctx.drawImage(img, s.x * scale, s.y * scale, s.w * scale, s.h * scale);
+    } catch (e) { /* 忽略加载失败的贴图 */ }
+  }
+  return canvas;
+}
+
+async function exportPNG() {
+  const canvas = await renderToCanvas(document.createElement('canvas'));
+  canvas.toBlob(blob => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'meme-' + Date.now() + '.png';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast('已下载 PNG');
+  }, 'image/png');
+}
+
+async function copyToClipboard() {
+  try {
+    const canvas = await renderToCanvas(document.createElement('canvas'));
+    canvas.toBlob(async blob => {
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        toast('已复制到剪贴板');
+      } catch (e) { toast('复制失败，可改用下载'); }
+    }, 'image/png');
+  } catch (e) { toast('当前浏览器不支持复制图片'); }
+}
+
+/* ---- 初始化 ---- */
+function init() {
+  bindChipGroup('#layout-row .chip', el => setLayout(+el.dataset.layout));
+  bindChipGroup('.color-row .chip', el => { state.color = el.dataset.color; renderCanvas(); });
+  bindChipGroup('.pos-row .chip', el => { state.pos = el.dataset.pos; renderCanvas(); });
+
+  document.getElementById('fontSize').addEventListener('input', e => {
+    state.fontSize = +e.target.value;
+    document.getElementById('fontSizeVal').textContent = state.fontSize;
+    applyTextStyle();
+  });
+
+  document.getElementById('sigToggle').addEventListener('change', e => {
+    state.signature.enabled = e.target.checked;
+    applySignature();
+  });
+
+  document.getElementById('applyRandom').addEventListener('click', () => {
+    for (let i = 0; i < state.cells.length; i++) {
+      state.cells[i].text = SUGGESTIONS[Math.floor(Math.random() * SUGGESTIONS.length)];
+    }
+    renderCells(); renderCanvas();
+    toast('已随机填充 ' + state.cells.length + ' 格');
+  });
+  document.getElementById('clearAllText').addEventListener('click', () => {
+    state.cells.forEach(c => c.text = '');
+    renderCells(); renderCanvas();
+  });
+  document.getElementById('loadPreset').addEventListener('click', () => {
+    for (let i = 0; i < state.cells.length; i++) {
+      const p = PRESETS[i % PRESETS.length];
+      state.cells[i].text = p.join('\n');
+    }
+    renderCells(); renderCanvas();
+  });
+
+  // 素材选择器
+  document.getElementById('pickerClose').addEventListener('click', closePicker);
+  document.getElementById('pickerPrev').addEventListener('click', () => { pickerPage--; renderPickerPage(); });
+  document.getElementById('pickerNext').addEventListener('click', () => { pickerPage++; renderPickerPage(); });
+
+  // 贴图
+  let stickerSrc = SAMPLE_STICKER;
+  document.getElementById('sampleStickerImg').src = stickerSrc;
+  document.getElementById('addSampleSticker').addEventListener('click', () => addSticker(stickerSrc));
+  document.getElementById('uploadSticker').addEventListener('click', () => document.getElementById('stickerInput').click());
+  document.getElementById('stickerInput').addEventListener('change', e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      stickerSrc = ev.target.result;
+      document.getElementById('sampleStickerImg').src = stickerSrc;
+      document.getElementById('stickerLabel').textContent = '';
+      addSticker(stickerSrc);
+    };
+    reader.readAsDataURL(f);
+  });
+  document.getElementById('clearStickers').addEventListener('click', () => {
+    state.stickers = [];
+    renderStickers();
+    toast('已清空贴图');
+  });
+
+  // 贴图拖拽/缩放
+  window.addEventListener('pointermove', onPointerMove);
+  window.addEventListener('pointerup', onPointerUp);
+  window.addEventListener('pointercancel', onPointerUp);
+
+  document.getElementById('downloadBtn').addEventListener('click', exportPNG);
+  document.getElementById('copyBtn').addEventListener('click', copyToClipboard);
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    state.layout = 1; state.cells = [{ img: DEFAULT_IDX, text: '' }]; state.stickers = [];
+    document.querySelectorAll('#layout-row .chip').forEach(c => c.classList.toggle('active', +c.dataset.layout === 1));
+    renderCells(); renderCanvas();
+  });
+
+  renderCells();
+  renderCanvas();
+}
+
+// 默认选中「不急」素材
+if (Memes.length) state.cells[0].img = DEFAULT_IDX;
+init();
+</script>
+</body>
+</html>
